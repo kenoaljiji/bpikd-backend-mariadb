@@ -113,7 +113,7 @@ router.post(
     const title = req.workTitle;
     const { fullName } = req.params;
 
-    console.log(fullName);
+    const slugifyFullName = slugify(fullName);
 
     let conn;
     try {
@@ -125,7 +125,7 @@ router.post(
           req.files[type].forEach((file) => {
             const url = `${req.protocol}://${req.get(
               'host'
-            )}/person-of-interest/${fullName}/${slugify(
+            )}/person-of-interest/${slugifyFullName}/${slugify(
               title
             )}/${type}/${slugify(file.originalname)}`;
             const mediaItem = {
