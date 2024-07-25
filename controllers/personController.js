@@ -76,6 +76,10 @@ export const addOrUpdatePersonAndWork = async (req, res) => {
     conn = await pool.getConnection();
     await conn.beginTransaction();
 
+    const createdBy = req.user.role; // Use the username from the request object
+
+    console.log(createdBy);
+
     let featuredImage =
       req.files && req.files.featuredImage && req.files.featuredImage[0]
         ? `${protocol}://${req.get('host')}/featured/${
@@ -106,7 +110,7 @@ export const addOrUpdatePersonAndWork = async (req, res) => {
           personData.lastName,
           personData.aboutPerson,
           featuredImage,
-          'admin',
+          createdBy,
           category,
           visibility,
         ]
@@ -140,7 +144,7 @@ export const addOrUpdatePersonAndWork = async (req, res) => {
         externalSource || null,
         visibility,
         publishStatus,
-        'admin',
+        createdBy,
       ]
     );
 
@@ -305,7 +309,8 @@ export const getPersonBasics = async (req, res) => {
                 firstName,
                 lastName,
                 featured,
-                aboutPerson
+                aboutPerson,
+                createdBy
             FROM 
                 persons;
         `;
@@ -813,7 +818,7 @@ const mediaStorage = multer.diskStorage({
     const slugifyName = fullName && slugify(fullName);
 
     if (file.fieldname === 'featuredImage') {
-      // Special destination for featured images
+      // Special destination for featured imagesedit
       destPath = path.join(__dirname, '../public', 'featured');
     } else {
       const fileType = file.mimetype.split('/')[0];
