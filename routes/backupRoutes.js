@@ -109,15 +109,10 @@ const backupBackend = async () => {
   });
 
   // Finalize the archive (ie we are done appending files but streams have to finish yet)
-  await archive
-    .finalize()
-    .then(() => {
-      console.log('Archive finalized');
-    })
-    .catch((err) => {
-      console.error(`Error finalizing archive: ${err}`);
-      throw err;
-    });
+  await new Promise((resolve, reject) => {
+    output.on('close', resolve);
+    archive.finalize().catch(reject);
+  });
 
   return backupPath;
 };
@@ -125,7 +120,7 @@ const backupBackend = async () => {
 // Adjust the path according to where your script is located
 const rootDir = path.join(__dirname, '../');
 // Ensure this points directly to the file you intend to send, not a directory
-const backupFilePath = path.join(rootDir, 'backups', 'react_build.zip');
+const backupFilePath = path.join(rootDir, 'backups', 'build.zip');
 
 router.get('/react-build', async (req, res) => {
   // Setting no timeout for a download might be necessary if it's a large file
@@ -133,7 +128,7 @@ router.get('/react-build', async (req, res) => {
 
   console.log('Attempting to send file:', backupFilePath);
   try {
-    res.download(backupFilePath, 'react_build.zip', (err) => {
+    res.download(backupFilePath, 'build.zip', (err) => {
       if (err) {
         // Log the error for server-side debugging
         console.error('Download error:', err);
