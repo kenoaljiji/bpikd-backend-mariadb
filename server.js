@@ -8,6 +8,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import winston from 'winston';
+import expressWs from 'express-ws'; // Import expressWs
 
 dotenv.config();
 
@@ -35,6 +36,7 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 const app = express();
+expressWs(app); // Initialize WebSocket on the app
 
 app.enable('trust proxy');
 

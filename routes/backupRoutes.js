@@ -1,6 +1,5 @@
 import express from 'express';
 import { createServer } from 'http';
-import { Server } from 'socket.io';
 import fs from 'fs';
 import path from 'path';
 import archiver from 'archiver';
@@ -8,8 +7,10 @@ import { promisify } from 'util';
 import { finished } from 'stream';
 import pool from '../db/config.js';
 const streamFinished = promisify(finished);
+import expressWs from 'express-ws';
 
 const router = express.Router();
+expressWs(router); // Initialize WebSocket on the router
 
 import { fileURLToPath } from 'url';
 
@@ -20,9 +21,14 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const server = createServer(app); // Use createServer from 'http' module
-const io = new Server(server);
+expressWs(app, server);
 
-let progress;
+/* app.use(
+  cors({
+    origin: '*', // Replace with your frontend origin
+    methods: ['GET', 'POST'],
+  })
+); */
 
 const backupDatabase = async () => {
   let conn;
@@ -75,8 +81,8 @@ const backupDatabase = async () => {
   }
 };
 
-const backupBackend = async () => {
-  const rootDir = path.join(__dirname, '../'); // Adjust according to where your script is located
+const backupBackend = async (ws) => {
+  const rootDir = path.join(__dirname, '../');
   const backupsDir = path.join(rootDir, 'backups');
 
   if (!fs.existsSync(backupsDir)) {
@@ -86,58 +92,99 @@ const backupBackend = async () => {
   const backupFileName = `backup-${new Date().toISOString().slice(0, 10)}.zip`;
   const backupPath = path.join(backupsDir, backupFileName);
   const output = fs.createWriteStream(backupPath);
-  const archive = archiver('zip', {
-    zlib: { level: 9 }, // Sets the compression level.
+  const archive = archiver('zip', { zlib: { level: 9 } });
+
+  let fileList = [];
+  const collectFiles = (dir) => {
+    fs.readdirSync(dir).forEach((file) => {
+      const fullPath = path.join(dir, file);
+      if (fullPath.includes('.env')) {
+        // Ensure .env files are included
+        fileList.push(fullPath);
+      } else if (
+        !fullPath.includes('node_modules') &&
+        !fullPath.includes('backups')
+      ) {
+        if (fs.statSync(fullPath).isDirectory()) {
+          collectFiles(fullPath);
+        } else {
+          fileList.push(fullPath);
+        }
+      }
+    });
+  };
+
+  collectFiles(rootDir);
+  console.log(`Total files to be processed: ${fileList.length}`);
+
+  let processedFiles = 0;
+
+  archive.on('entry', (entry) => {
+    processedFiles++;
+    const progress = Math.round((processedFiles / fileList.length) * 100);
+    ws.send(JSON.stringify({ progress }));
+    /*  console.log(
+      `Processed: ${processedFiles}/${fileList.length}, Progress: ${progress}%`
+    ); */
   });
 
-  // Listen for all archive data to be written
-  output.on('close', () => {
-    console.log(`Backup created: ${archive.pointer()} total bytes`);
-  });
-
-  // Good practice to catch warnings (ie stat failures and other non-blocking errors)
   archive.on('warning', (err) => {
-    if (err.code === 'ENOENT') {
-      console.warn(`File not found: ${err}`);
-    } else {
-      console.error(`Archiver warning: ${err}`);
-    }
+    console.warn(`Archiver warning: ${err}`);
   });
 
-  // Catch this error explicitly
   archive.on('error', (err) => {
     console.error(`Archiver error: ${err}`);
     throw err;
   });
 
-  // Pipe archive data to the file
   archive.pipe(output);
 
-  // Append files from a glob pattern, excluding the entire backups folder
+  // Append files using glob which ensures all files are processed
   archive.glob('**/*', {
     cwd: rootDir,
     ignore: ['node_modules/**', 'backups/**'],
   });
 
-  // Explicitly include backups/build.zip
+  // Explicitly include specific files if necessary
   archive.file(path.join(rootDir, 'backups/build.zip'), {
     name: 'backups/build.zip',
   });
 
-  // Finalize the archive (ie we are done appending files but streams have to finish yet)
   await new Promise((resolve, reject) => {
-    output.on('close', resolve);
+    output.on('close', () => {
+      console.log(`Backup created: ${archive.pointer()} total bytes`);
+      ws.send(
+        JSON.stringify({
+          progress: 100,
+          message: 'Backup complete',
+          path: backupPath,
+        })
+      );
+      console.log('Backup path:', backupPath);
+      resolve();
+    });
+    output.on('error', reject);
     archive.finalize().catch(reject);
   });
-
-  console.log('Backup path:', backupPath);
-  return backupPath;
 };
+
+router.ws('/ws/progress', async (ws, req) => {
+  try {
+    const backupPath = await backupBackend(ws);
+    ws.send(JSON.stringify({ message: 'Backup complete', path: backupPath }));
+  } catch (error) {
+    ws.send(JSON.stringify({ error: 'Failed to create backup' }));
+  }
+});
 
 router.get('/backend', async (req, res) => {
   req.setTimeout(0); // No timeout
   try {
-    const backupPath = await backupBackend();
+    const backupPath = path.join(
+      __dirname,
+      '../backups',
+      `backup-${new Date().toISOString().slice(0, 10)}.zip`
+    );
     res.setHeader('Content-Type', 'application/zip');
     res.download(backupPath, 'backend-archive.zip', (error) => {
       if (error) {
