@@ -85,7 +85,7 @@ app.use('/', express.static('public/works'));
 app.use('/', express.static('public'));
 
 // WebSocket route for backup progress
-app.ws('/download/ws/progress', async (ws, req) => {
+/* app.ws('/download/ws/progress', async (ws, req) => {
   try {
     const backupPath = await backupBackend(ws);
     ws.send(JSON.stringify({ message: 'Backup complete', path: backupPath }));
@@ -93,7 +93,7 @@ app.ws('/download/ws/progress', async (ws, req) => {
     ws.send(JSON.stringify({ error: 'Failed to create backup' }));
     console.error(`WebSocket error: ${error.message}`);
   }
-});
+}); */
 
 app.use('/api', routes);
 

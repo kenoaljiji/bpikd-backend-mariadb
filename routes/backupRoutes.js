@@ -158,7 +158,7 @@ export const backupBackend = async (ws) => {
     archive.finalize().catch(reject);
   });
 };
-/* 
+
 router.ws('/ws/progress', async (ws, req) => {
   try {
     const backupPath = await backupBackend(ws);
@@ -166,7 +166,7 @@ router.ws('/ws/progress', async (ws, req) => {
   } catch (error) {
     ws.send(JSON.stringify({ error: 'Failed to create backup' }));
   }
-}); */
+});
 
 router.get('/backend', async (req, res) => {
   req.setTimeout(0); // No timeout
