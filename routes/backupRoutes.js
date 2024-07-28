@@ -1,17 +1,28 @@
 import express from 'express';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
 import fs from 'fs';
 import path from 'path';
+import archiver from 'archiver';
 import { promisify } from 'util';
 import { finished } from 'stream';
 import pool from '../db/config.js';
 const streamFinished = promisify(finished);
-import archiver from 'archiver';
+
 const router = express.Router();
 
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+/* const __dirname = path.resolve(); */
+
+const app = express();
+const server = createServer(app); // Use createServer from 'http' module
+const io = new Server(server);
+
+let progress;
 
 const backupDatabase = async () => {
   let conn;
@@ -114,8 +125,26 @@ const backupBackend = async () => {
     archive.finalize().catch(reject);
   });
 
+  console.log('Backup path:', backupPath);
   return backupPath;
 };
+
+router.get('/backend', async (req, res) => {
+  req.setTimeout(0); // No timeout
+  try {
+    const backupPath = await backupBackend();
+    res.setHeader('Content-Type', 'application/zip');
+    res.download(backupPath, 'project-backup.zip', (error) => {
+      if (error) {
+        console.error('Download failed:', error);
+        res.status(500).send('Failed to download backup');
+      }
+    });
+  } catch (error) {
+    console.error('Error creating backup:', error);
+    res.status(500).send('Failed to create backup');
+  }
+});
 
 // Adjust the path according to where your script is located
 const rootDir = path.join(__dirname, '../');
@@ -139,22 +168,6 @@ router.get('/react-build', async (req, res) => {
   } catch (error) {
     console.error('Error encountered:', error);
     res.status(500).send('Error preparing the download.');
-  }
-});
-
-router.get('/backend', async (req, res) => {
-  req.setTimeout(0); // No timeout
-  try {
-    const backupPath = await backupBackend();
-    res.download(backupPath, (error) => {
-      if (error) {
-        console.error('Download failed:', error);
-        res.status(500).send('Failed to download backup');
-      }
-    });
-  } catch (error) {
-    console.error('Error creating backup:', error);
-    res.status(500).send('Failed to create backup');
   }
 });
 
