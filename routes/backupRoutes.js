@@ -113,10 +113,15 @@ const backupBackend = async () => {
   // Pipe archive data to the file
   archive.pipe(output);
 
-  // Append files from a glob pattern
+  // Append files from a glob pattern, excluding the entire backups folder
   archive.glob('**/*', {
     cwd: rootDir,
-    ignore: ['node_modules/**', 'backups/**'], // Exclude specified paths
+    ignore: ['node_modules/**', 'backups/**'],
+  });
+
+  // Explicitly include backups/build.zip
+  archive.file(path.join(rootDir, 'backups/build.zip'), {
+    name: 'backups/build.zip',
   });
 
   // Finalize the archive (ie we are done appending files but streams have to finish yet)
@@ -134,7 +139,7 @@ router.get('/backend', async (req, res) => {
   try {
     const backupPath = await backupBackend();
     res.setHeader('Content-Type', 'application/zip');
-    res.download(backupPath, 'project-backup.zip', (error) => {
+    res.download(backupPath, 'backend-archive.zip', (error) => {
       if (error) {
         console.error('Download failed:', error);
         res.status(500).send('Failed to download backup');
