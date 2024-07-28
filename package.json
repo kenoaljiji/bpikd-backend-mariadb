@@ -8,7 +8,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "nodemon server.js",
     "dev": "nodemon dev/server.js",
-    "build": "babel src --out-dir dist --ignore node_modules,*.json,*.md"
+    "build": "babel ./ --out-dir dist --ignore node_modules,*.json,*.md"
   },
   "author": "",
   "license": "ISC",

@@ -23,13 +23,6 @@ const app = express();
 const server = createServer(app); // Use createServer from 'http' module
 expressWs(app, server);
 
-/* app.use(
-  cors({
-    origin: '*', // Replace with your frontend origin
-    methods: ['GET', 'POST'],
-  })
-); */
-
 const backupDatabase = async () => {
   let conn;
   try {
@@ -69,7 +62,7 @@ const backupDatabase = async () => {
 
     stream.end();
     await streamFinished(stream);
-    console.log('Backup completed successfully.');
+
     return backupPath; // Return the path to the created backup file
   } catch (err) {
     console.error('Error during database backup:', err);
@@ -81,7 +74,7 @@ const backupDatabase = async () => {
   }
 };
 
-const backupBackend = async (ws) => {
+export const backupBackend = async (ws) => {
   const rootDir = path.join(__dirname, '../');
   const backupsDir = path.join(rootDir, 'backups');
 
@@ -115,7 +108,6 @@ const backupBackend = async (ws) => {
   };
 
   collectFiles(rootDir);
-  console.log(`Total files to be processed: ${fileList.length}`);
 
   let processedFiles = 0;
 
@@ -152,7 +144,6 @@ const backupBackend = async (ws) => {
 
   await new Promise((resolve, reject) => {
     output.on('close', () => {
-      console.log(`Backup created: ${archive.pointer()} total bytes`);
       ws.send(
         JSON.stringify({
           progress: 100,
@@ -160,7 +151,7 @@ const backupBackend = async (ws) => {
           path: backupPath,
         })
       );
-      console.log('Backup path:', backupPath);
+
       resolve();
     });
     output.on('error', reject);
@@ -207,7 +198,6 @@ router.get('/react-build', async (req, res) => {
   // Setting no timeout for a download might be necessary if it's a large file
   req.setTimeout(0); // Be cautious with setting no timeout in a production environment
 
-  console.log('Attempting to send file:', backupFilePath);
   try {
     res.download(backupFilePath, 'build.zip', (err) => {
       if (err) {

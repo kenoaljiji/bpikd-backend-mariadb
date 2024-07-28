@@ -9,6 +9,7 @@ import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import winston from 'winston';
 import expressWs from 'express-ws'; // Import expressWs
+import { backupBackend } from './routes/backupRoutes.js';
 
 dotenv.config();
 
@@ -82,6 +83,17 @@ app.use(express.static(path.join(__dirname, '../build')));
 // Serve static files from the public/uploads directory
 app.use('/', express.static('public/works'));
 app.use('/', express.static('public'));
+
+// WebSocket route for backup progress
+app.ws('/download/ws/progress', async (ws, req) => {
+  try {
+    const backupPath = await backupBackend(ws);
+    ws.send(JSON.stringify({ message: 'Backup complete', path: backupPath }));
+  } catch (error) {
+    ws.send(JSON.stringify({ error: 'Failed to create backup' }));
+    console.error(`WebSocket error: ${error.message}`);
+  }
+});
 
 app.use('/api', routes);
 
