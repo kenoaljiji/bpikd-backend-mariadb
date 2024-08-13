@@ -11,7 +11,6 @@ import {
 } from '../controllers/adminController.js';
 import { verifyToken } from '../middleware/auth.js';
 import {
-  authorizeAdmin,
   authorizeDelete,
   canCreateUser,
 } from '../middleware/response-handler.js'; // Assuming this is authorization middleware
